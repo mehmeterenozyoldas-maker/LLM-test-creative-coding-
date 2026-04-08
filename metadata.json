@@ -1,0 +1,5 @@
+{
+  "name": "Gravity Orchestra",
+  "description": "An interactive audiovisual experience where physics collisions create a generative soundscape within a Cornell Box environment.",
+  "requestFramePermissions": []
+}
