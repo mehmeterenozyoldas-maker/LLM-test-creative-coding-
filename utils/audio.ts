@@ -1,11 +1,13 @@
 import * as Tone from 'tone';
-import { SCALE } from '../constants';
+import { SCALES } from '../constants';
 
 export class AudioEngine {
   private synth: Tone.PolySynth | null = null;
+  private duoSynth: Tone.PolySynth | null = null;
   private reverb: Tone.Reverb | null = null;
   private compressor: Tone.Compressor | null = null;
   private isReady = false;
+  private currentScale: string[] = SCALES.PENTATONIC;
 
   async init() {
     if (this.isReady) return;
@@ -22,45 +24,54 @@ export class AudioEngine {
 
     // Reverb for atmosphere
     this.reverb = new Tone.Reverb({
-      decay: 2.5,
+      decay: 4.0,
       preDelay: 0.01,
-      wet: 0.3
+      wet: 0.4
     }).connect(this.compressor);
 
     await this.reverb.generate();
 
-    // PolySynth for the notes
+    // PolySynth for normal notes (Boxes/Spheres)
     this.synth = new Tone.PolySynth(Tone.Synth, {
-      oscillator: { type: 'triangle' }, // Soft, woody tone
+      oscillator: { type: 'sine' },
       envelope: { 
         attack: 0.005, 
-        decay: 0.2, 
+        decay: 0.3, 
         sustain: 0.1, 
-        release: 1.2 
+        release: 1.5 
       },
-      volume: -5 
+      volume: -8 
     }).connect(this.reverb);
-
-    // Limit polyphony to avoid performance issues
     this.synth.maxPolyphony = 16;
+    
+    // DuoSynth for heavier impacts
+    this.duoSynth = new Tone.PolySynth(Tone.DuoSynth, {
+      voice0: { oscillator: { type: 'square' }, volume: -15 },
+      voice1: { oscillator: { type: 'sine' }, volume: -15 },
+      volume: -10
+    }).connect(this.reverb);
+    this.duoSynth.maxPolyphony = 8;
     
     this.isReady = true;
   }
 
-  trigger(velocity: number) {
-    if (!this.synth || !this.isReady) return;
+  setScale(scaleName: keyof typeof SCALES) {
+    this.currentScale = SCALES[scaleName] || SCALES.PENTATONIC;
+  }
+
+  trigger(velocity: number, type: 'light' | 'heavy' = 'light') {
+    if (!this.synth || !this.duoSynth || !this.isReady) return;
 
     // Map velocity to volume dynamics
-    // Velocity roughly ranges from 1.5 (threshold) to ~10 (hard drop)
-    // Tone.triggerAttackRelease velocity arg is 0-1
-    const normalizedVel = Math.min(Math.max((velocity - 1.5) / 10, 0.1), 1);
-    
-    const note = SCALE[Math.floor(Math.random() * SCALE.length)];
-    
-    // Slight randomization of duration based on velocity
+    const normalizedVel = Math.min(Math.max((velocity - 0.5) / 10, 0.1), 1);
+    const note = this.currentScale[Math.floor(Math.random() * this.currentScale.length)];
     const duration = normalizedVel > 0.5 ? '4n' : '8n';
 
-    this.synth.triggerAttackRelease(note, duration, undefined, normalizedVel);
+    if (type === 'heavy' && velocity > 2.0) {
+        this.duoSynth.triggerAttackRelease(note, duration, undefined, normalizedVel * 0.8);
+    } else {
+        this.synth.triggerAttackRelease(note, duration, undefined, normalizedVel);
+    }
   }
 
   ready() {
