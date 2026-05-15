@@ -21,8 +21,9 @@ export function usePeerManager(mode: PeerMode, initialSessionId?: string) {
 
   useEffect(() => {
     setStatus('Connecting to WebSocket server...');
-    const socket = io('/', {
-       transports: ['websocket', 'polling']
+    const socket = io(window.location.origin, {
+       transports: ['websocket', 'polling'],
+       reconnectionAttempts: 5
     });
     socketRef.current = socket;
 
@@ -56,8 +57,8 @@ export function usePeerManager(mode: PeerMode, initialSessionId?: string) {
 
     socket.on('connect_error', (err) => {
       console.error('Socket.IO Error:', err);
-      setError(err.message);
-      setStatus(`Socket Error`);
+      setError(`${err.message} (Is the server reachable?)`);
+      setStatus(`Socket Error: ${err.message}`);
     });
 
     socket.on('disconnect', () => {
